@@ -1,0 +1,8 @@
+task_name,parent_list,process_type,schedule,parameter
+load_bronze_students,,python,00:00,dwh:v001|ingestor_students|root.pgdatabase.5432.dwh.stg_students.raw_data/students.csv
+load_bronze_attendance,,python,00:00,dwh:v001|ingestor_attendance|root.pgdatabase.5432.dwh.stg_attendance.raw_data/attendance.csv
+load_bronze_assessments,,python,00:00,dwh:v001|ingestor_assessments|root.pgdatabase.5432.dwh.stg_assessments.raw_data/assessments.json
+load_silver_students,load_bronze_students,postgres,00:00,silver.usp_load_silver_students()
+load_silver_attendance,load_bronze_attendance,postgres,00:00,silver.usp_load_silver_attendance()
+load_silver_assessments,load_bronze_assessments,postgres,00:00,silver.usp_load_silver_assessments()
+load_gold_fact_performance,load_silver_students|load_silver_attendance|load_silver_assessments,postgres,00:00,gold.usp_load_fact_class_performance()

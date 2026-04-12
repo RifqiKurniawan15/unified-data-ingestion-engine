@@ -1,0 +1,85 @@
+services:
+  pgdatabase:
+    image: postgres:13
+    container_name: pgdatabase
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD==${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD}
+    ports:
+      - "8080:80"
+    depends_on:
+      - pgdatabase
+  ingestor:
+    build: .
+    container_name: ingestor_container
+    # Perintah ini yang akan dijalankan otomatis
+    command: [
+      "--user=root",
+      "--password=root",
+      "--host=pgdatabase",
+      "--port=5432",
+      "--dbname=dwh",
+      "--table_name=stg_students",
+      "--url=raw_data/students.csv"
+    ]
+    depends_on:
+      - pgdatabase
+  airflow-webserver:
+    image: apache/airflow:2.7.1-python3.11
+    container_name: airflow_webserver
+    depends_on:
+      - pgdatabase
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgdatabase:5432/${POSTGRES_DB}
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_SECRET_KEY}
+      - RAW_DATA_PATH=${RAW_DATA_PATH}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./raw_data:/opt/airflow/raw_data
+      - /var/run/docker.sock:/var/run/docker.sock # Penting supaya Airflow bisa panggil Docker
+    ports:
+      - "8081:8080"
+    command: webserver
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.1-python3.11
+    hostname: airflow_scheduler
+    container_name: airflow_scheduler
+    depends_on:
+      - pgdatabase
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgdatabase:5432/${POSTGRES_DB}
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_SECRET_KEY}
+      - RAW_DATA_PATH=${RAW_DATA_PATH}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./raw_data:/opt/airflow/raw_data
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: scheduler
+
+  airflow-init:
+    image: apache/airflow:2.7.1-python3.11
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgdatabase:5432/${POSTGRES_DB}
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_SECRET_KEY}
+    command: bash -c "airflow db init && 
+      airflow users create --username admin --firstname admin --lastname admin --role Admin --email admin@admin.com --password admin"
+
+volumes:
+  postgres_data:

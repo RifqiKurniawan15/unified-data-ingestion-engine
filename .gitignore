@@ -1,0 +1,17 @@
+# Docker
+.env
+postgres_data/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Airflow logs & temporary files
+logs/
+plugins/
+airflow.db
+unittests.cfg
+
+# OS files
+.DS_Store
+Thumbs.db
